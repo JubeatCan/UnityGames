@@ -1,104 +1,75 @@
 ﻿using UnityEngine;
 
 public class CameraControl : MonoBehaviour
-{
-    public float m_DampTime = 0.2f;                 
-    public float m_ScreenEdgeBuffer = 4f;           
-    public float m_MinSize = 6.5f;                  
+{               
     [HideInInspector] public Transform[] m_Targets; 
 
 
-    private Camera m_Camera;                        
-    private float m_ZoomSpeed;                      
-    private Vector3 m_MoveVelocity;                 
-    private Vector3 m_DesiredPosition;              
+    private Camera[] m_Camera;                                            
 
+    private Vector3[] m_DesiredPosition = new[] { new Vector3(0f, 0f, 0f), new Vector3(0f, 0f, 0f) };
+    private float m_PosY = 2.5f;
+
+    private Quaternion m_CameraAngle = Quaternion.Euler(20, 0, 0);
+    private Quaternion[] m_DesiredRotation = new[] { Quaternion.Euler(0, 0, 0), Quaternion.Euler(0, 0, 0) };
 
     private void Awake()
     {
-        m_Camera = GetComponentInChildren<Camera>();
+        m_Camera = GetComponentsInChildren<Camera>();
     }
-
 
     private void FixedUpdate()
     {
         Move();
-        Zoom();
     }
-
 
     private void Move()
     {
-        FindAveragePosition();
+        FindPosition();
+        FindRotation();
 
-        transform.position = Vector3.SmoothDamp(transform.position, m_DesiredPosition, ref m_MoveVelocity, m_DampTime);
+        for (int i = 0; i < 2; i++)
+        {
+            m_Camera[i].transform.position = m_DesiredPosition[i];
+            m_Camera[i].transform.rotation = m_DesiredRotation[i] * m_CameraAngle;
+        }
     }
 
-
-    private void FindAveragePosition()
+    private void FindPosition()
     {
-        Vector3 averagePos = new Vector3();
-        int numTargets = 0;
-
-        for (int i = 0; i < m_Targets.Length; i++)
+        Vector3 Pos = new Vector3();
+        for(int i = 0; i < 2; i++)
         {
             if (!m_Targets[i].gameObject.activeSelf)
                 continue;
 
-            averagePos += m_Targets[i].position;
-            numTargets++;
+            Pos = m_Targets[i].TransformPoint(Vector3.forward*-3);
+            
+            Pos.y = m_PosY;
+            
+            m_DesiredPosition[i] = Pos;
         }
-
-        if (numTargets > 0)
-            averagePos /= numTargets;
-
-        averagePos.y = transform.position.y;
-
-        m_DesiredPosition = averagePos;
     }
 
-
-    private void Zoom()
+    private void FindRotation()
     {
-        float requiredSize = FindRequiredSize();
-        m_Camera.orthographicSize = Mathf.SmoothDamp(m_Camera.orthographicSize, requiredSize, ref m_ZoomSpeed, m_DampTime);
-    }
-
-
-    private float FindRequiredSize()
-    {
-        Vector3 desiredLocalPos = transform.InverseTransformPoint(m_DesiredPosition);
-
-        float size = 0f;
-
-        for (int i = 0; i < m_Targets.Length; i++)
+        for(int i = 0; i < 2; i++)
         {
             if (!m_Targets[i].gameObject.activeSelf)
                 continue;
-
-            Vector3 targetLocalPos = transform.InverseTransformPoint(m_Targets[i].position);
-
-            Vector3 desiredPosToTarget = targetLocalPos - desiredLocalPos;
-
-            size = Mathf.Max (size, Mathf.Abs (desiredPosToTarget.y));
-
-            size = Mathf.Max (size, Mathf.Abs (desiredPosToTarget.x) / m_Camera.aspect);
+            m_DesiredRotation[i] = m_Targets[i].rotation;
         }
-        
-        size += m_ScreenEdgeBuffer;
-
-        size = Mathf.Max(size, m_MinSize);
-
-        return size;
     }
-
 
     public void SetStartPositionAndSize()
     {
-        FindAveragePosition();
+        FindPosition();
+        FindRotation();
 
-        transform.position = m_DesiredPosition;
+        m_Camera[0].transform.position = m_DesiredPosition[0];
+        m_Camera[1].transform.position = m_DesiredPosition[1];
+        m_Camera[0].transform.rotation = m_DesiredRotation[0] * m_CameraAngle;
+        m_Camera[1].transform.rotation = m_DesiredRotation[1] * m_CameraAngle;
 
-        m_Camera.orthographicSize = FindRequiredSize();
     }
 }
